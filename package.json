@@ -1,0 +1,79 @@
+{
+  "name": "ats-mail-sorter",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Mail Sorter AI — trie vos mails Gmail avec l'IA (6 providers gratuits, failover automatique)",
+  "type": "module",
+  "main": "electron-dist/main.js",
+  "scripts": {
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:1420 && tsc -p electron/tsconfig.json && cross-env VITE_DEV_SERVER_URL=http://localhost:1420 node scripts/run-electron.cjs electron-dist/main.js",
+    "dev": "concurrently -k -n RENDERER,ELECTRON -c cyan,magenta \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "build:renderer": "tsc && vite build",
+    "build:electron": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('electron-dist/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
+    "build": "npm run build:renderer && npm run build:electron",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
+    "icon": "node build/gen-icon.cjs",
+    "package": "npm run build && electron-builder",
+    "package:win": "npm run build && electron-builder --win",
+    "start": "node scripts/run-electron.cjs electron-dist/main.js"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^35.7.5",
+    "electron-builder": "^26.0.12",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4",
+    "vitest": "^4.1.11",
+    "wait-on": "^8.0.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "electron@35.7.5": true,
+    "electron-winstaller@5.4.0": true
+  },
+  "build": {
+    "appId": "com.atsdopi.mailsorter",
+    "productName": "Mail Sorter AI",
+    "files": [
+      "electron-dist/**/*",
+      "dist/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Mail Sorter AI",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": [
+        "fr_FR",
+        "en_US"
+      ],
+      "language": "1036"
+    }
+  }
+}
