@@ -40,6 +40,7 @@ const api = {
     onSortCancelled: on('sort:cancelled'),
     onSortProvider: on('sort:provider'),
     onSortError: on('sort:error'),
+    onSortRetry: on('sort:retry'),
   },
   providers: {
     test: (provider: AiProvider): Promise<ProviderTestResult> => ipcRenderer.invoke('providers:test', provider),

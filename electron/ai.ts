@@ -472,10 +472,13 @@ export interface ProviderState {
   config: ProviderConfig;
   /** Modèles candidats ordonnés (meilleur d'abord). */
   models: string[];
-  /** Modèles morts pour la session (404, dépréciés). */
+  /** Modèles morts pour la session (404, dépréciés, trop d'erreurs). */
   modelDead: Set<string>;
   /** Cooldown par modèle : timestamp de fin de pause. */
   modelCooldownUntil: Map<string, number>;
+  /** Compteurs d'erreurs/succès par modèle → budget d'erreurs. */
+  modelErrors: Map<string, number>;
+  modelSuccesses: Map<string, number>;
   /** Clé invalide → provider entier retiré pour la session. */
   keyDead: boolean;
   /** Dernier modèle utilisé (pour l'UI). */
@@ -548,6 +551,8 @@ export function initProviders(settings: ProviderKeys): void {
       models: buildModelQueue(settings, provider),
       modelDead: new Set(),
       modelCooldownUntil: new Map(),
+      modelErrors: new Map(),
+      modelSuccesses: new Map(),
       keyDead: false,
       lastModelUsed: null,
       consecutiveFails: 0,
@@ -875,14 +880,40 @@ function applyErrorStrategy(
   if (e instanceof TimeoutError) {
     ps.totalTimeouts++;
     ps.consecutiveFails++;
-    ps.modelCooldownUntil.set(model, now + 10_000);
+    bumpModelError(ps, model, now + 10_000, tag);
     console.warn(`[${tag}] ${p}/${mName} timeout — modèle en pause 10s`);
     return;
   }
   ps.totalErrors++;
   ps.consecutiveFails++;
-  ps.modelCooldownUntil.set(model, now + 5_000);
+  bumpModelError(ps, model, now + 5_000, tag);
   console.warn(`[${tag}] ${p}/${mName} erreur: ${e instanceof Error ? e.message.slice(0, 120) : e} — pause 5s`);
+}
+
+/** Budget d'erreurs par modèle : au-delà, le modèle est évincé. */
+export const MODEL_ERROR_BUDGET = 5;
+/** Fast-fail : 3 erreurs sans aucun succès = modèle cassé pour nous. */
+const MODEL_ERROR_FAST_FAIL = 3;
+
+/**
+ * Comptabilise une erreur réelle du modèle (timeout, 5xx, réponse
+ * invalide). Si le budget est dépassé → modèle évincé de la file,
+ * comme un modèle mort : les mails qu'il a cassés seront réessayés
+ * sur d'autres modèles/providers.
+ */
+function bumpModelError(ps: ProviderState, model: string, cooldownUntil: number, tag: string): void {
+  const errors = (ps.modelErrors.get(model) ?? 0) + 1;
+  ps.modelErrors.set(model, errors);
+  const successes = ps.modelSuccesses.get(model) ?? 0;
+  if (errors >= MODEL_ERROR_BUDGET || (errors >= MODEL_ERROR_FAST_FAIL && successes === 0)) {
+    ps.modelDead.add(model);
+    console.warn(
+      `[${tag}] ${ps.config.provider}/${shortModelName(model)} : ${errors} erreurs ` +
+      `(${successes} succès) — modèle ÉVINCÉ de la file`
+    );
+    return;
+  }
+  ps.modelCooldownUntil.set(model, cooldownUntil);
 }
 
 /**
@@ -944,6 +975,7 @@ async function runWithFailover<T>(
       ps.consecutiveRateLimits = 0;
       ps.totalSuccesses++;
       ps.lastModelUsed = model;
+      ps.modelSuccesses.set(model, (ps.modelSuccesses.get(model) ?? 0) + 1);
       updateLatency(ps, latency);
 
       if (totalAttempts > 1) {

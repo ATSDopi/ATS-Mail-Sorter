@@ -195,12 +195,45 @@ async function categorizeWithProgress(
     succeeded: 0,
     failed: 0,
     skipped: 0,
+    retryPending: 0,
     currentEmail: '',
     lastCategory: null,
     startedAt: Date.now(),
     batchMode: true,
   };
   sortCancelled = false;
+
+  // ── File de retry ─────────────────────────────────────────────────
+  // Un mail en échec IA/Gmail repart en fin de file (max MAX_MAIL_RETRIES
+  // fois). Le modèle fautif aura été évincé entre-temps (budget d'erreurs)
+  // → le retry tombe naturellement sur un autre modèle/provider.
+  const MAX_MAIL_RETRIES = 3;
+  const retryCount = new Map<string, number>();
+  const retrying = new Set<string>();
+  const refById = new Map(refs.map((r) => [r.id, r]));
+
+  const finalizeFail = (id: string, err: unknown) => {
+    retrying.delete(id);
+    progress.retryPending = retrying.size;
+    progress.done++;
+    progress.failed++;
+    sendProgress('sort:error', { emailId: id, error: String(err).slice(0, 200) });
+  };
+
+  const recordRetryOrFail = (id: string, err: unknown): void => {
+    const n = (retryCount.get(id) ?? 0) + 1;
+    const ref = refById.get(id);
+    if (ref && n <= MAX_MAIL_RETRIES && !sortCancelled) {
+      retryCount.set(id, n);
+      retrying.add(id);
+      refs.push(ref); // ré-enfilé en fin de file
+      progress.retryPending = retrying.size;
+      console.log(`[tri] ${id} → réessai ${n}/${MAX_MAIL_RETRIES} programmé`);
+      sendProgress('sort:retry', { emailId: id, attempt: n, maxRetries: MAX_MAIL_RETRIES });
+      return;
+    }
+    finalizeFail(id, err);
+  };
 
   // Callback : envoie le provider actif à l'UI en temps réel.
   onCategorizeAttempt((info) => {
@@ -297,6 +330,10 @@ async function categorizeWithProgress(
     sendProgress('sort:progress', { ...progress });
   };
 
+  const clearRetry = (id: string) => {
+    if (retrying.delete(id)) progress.retryPending = retrying.size;
+  };
+
   const recordResult = (br: { id: string; category_id: string; confidence: number; reason: string }) => {
     const cat = settings.categories.find((c) => c.id === br.category_id);
     if (!cat) {
@@ -318,6 +355,7 @@ async function categorizeWithProgress(
     progress.done++;
     progress.succeeded++;
     progress.lastCategory = cat.name;
+    clearRetry(br.id);
     sendProgress('sort:result', result);
     results.push(result);
     return result;
@@ -354,13 +392,11 @@ async function categorizeWithProgress(
     const batchEmails: BatchEmailItem[] = [];
     for (const { id, meta, error } of metas) {
       if (!meta) {
-        progress.done++;
         // Sur annulation les requêtes métadonnées s'abortent — ce ne sont
         // pas des échecs, juste des mails non traités.
-        if (sortCancelled) continue;
-        progress.failed++;
+        if (sortCancelled) { progress.done++; continue; }
         console.warn('[tri] metadata illisible:', id, error);
-        sendProgress('sort:error', { emailId: id, error: `Métadonnées illisibles: ${String(error).slice(0, 120)}` });
+        recordRetryOrFail(id, `Métadonnées illisibles: ${String(error).slice(0, 120)}`);
         continue;
       }
       if (meta.starred) { recordSkip('Favori (protégé)'); continue; }
@@ -381,9 +417,7 @@ async function categorizeWithProgress(
       const answeredIds = new Set(batchResults.map((r) => r.id));
       for (const be of batchEmails) {
         if (!answeredIds.has(be.id)) {
-          progress.done++;
-          progress.failed++;
-          sendProgress('sort:error', { emailId: be.id, error: 'Pas de réponse IA pour ce mail' });
+          recordRetryOrFail(be.id, 'Pas de réponse IA pour ce mail');
         }
       }
 
@@ -410,9 +444,7 @@ async function categorizeWithProgress(
           await applyResult(br);
         } catch (e2) {
           console.warn('fallback error', be.id, e2);
-          progress.done++;
-          progress.failed++;
-          sendProgress('sort:error', { emailId: be.id, error: String(e2) });
+          recordRetryOrFail(be.id, e2);
         }
       }
       dynamicDelay = Math.min(dynamicDelay * 1.5, 8_000);

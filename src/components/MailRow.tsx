@@ -1,22 +1,23 @@
 import type { CSSProperties } from "react";
 import type { Category, CategorizationResult, EmailSummary } from "../types";
 import { categoryColor, formatDate, senderAddress, senderName } from "../utils/format";
-import { IconAlert, IconExternal, IconStar } from "./icons";
+import { IconAlert, IconExternal, IconRefresh, IconStar } from "./icons";
 
 interface Props {
   mail: EmailSummary;
   result?: CategorizationResult;
   error?: string;
+  retry?: { attempt: number; maxRetries: number };
   categories: Category[];
   onOpenInGmail: (id: string) => void;
 }
 
 /** Une ligne de mail : expéditeur, sujet, extrait, résultat du tri. */
-export default function MailRow({ mail, result, error, categories, onOpenInGmail }: Props) {
+export default function MailRow({ mail, result, error, retry, categories, onOpenInGmail }: Props) {
   const color = result ? categoryColor(result.categoryId, categories) : undefined;
 
   return (
-    <li className={`mail ${mail.unread ? "unread" : ""} ${error ? "failed" : ""}`}>
+    <li className={`mail ${mail.unread ? "unread" : ""} ${error ? "failed" : ""} ${retry ? "retrying" : ""}`}>
       <div className="mail-main">
         <div className="mail-topline">
           <span className="mail-from" title={senderAddress(mail.from)}>
@@ -56,6 +57,11 @@ export default function MailRow({ mail, result, error, categories, onOpenInGmail
           {error && (
             <span className="mail-error" title={error}>
               <IconAlert size={12} /> Échec
+            </span>
+          )}
+          {retry && !error && (
+            <span className="mail-retry" title="Ré-enfilé sur un autre modèle après échec">
+              <IconRefresh size={12} /> À réessayer {retry.attempt}/{retry.maxRetries}
             </span>
           )}
         </div>

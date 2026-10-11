@@ -7,6 +7,7 @@ interface Props {
   emails: EmailSummary[];
   results: Record<string, CategorizationResult>;
   errors: Record<string, string>;
+  retries: Record<string, { attempt: number; maxRetries: number }>;
   loading: boolean;
   busy: string | null;
   categories: Category[];
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export default function EmailList({
-  emails, results, errors, loading, busy, categories,
+  emails, results, errors, retries, loading, busy, categories,
   sortProgress, providerHealth, dryRun,
   onRefresh, onLoadAll, onCategorizeAll, onCategorizeBatch,
   onCancelSort, onToggleDryRun, onOpenInGmail,
@@ -95,6 +96,7 @@ export default function EmailList({
             mail={m}
             result={results[m.id]}
             error={errors[m.id]}
+            retry={retries[m.id]}
             categories={categories}
             onOpenInGmail={onOpenInGmail}
           />

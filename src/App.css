@@ -598,6 +598,23 @@ a:hover { text-decoration: underline; }
   color: var(--err);
 }
 
+/* État « à réessayer » — entre échec et succès : ambre, bordure douce. */
+.mail.retrying { border-left: 2px solid var(--warn, #e8a33d); padding-left: 18px; }
+
+.mail-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--warn, #e8a33d);
+}
+.mail-retry svg { animation: spin 2.2s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.sort-stats .retry { color: var(--warn, #e8a33d); }
+
 .mail-open { opacity: 0; transition: opacity 0.15s; margin-top: 2px; }
 
 /* ─── États vides ────────────────────────────────────────────────────── */

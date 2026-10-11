@@ -54,6 +54,9 @@ catégorie est configurée pour.
   modèles échouent au démarrage du tri, relance un discovery.
 - **Health scoring** : succès (40%) + latence (25%) + charge RPM (25%)
   − échecs récents, switch immédiat sur erreur.
+- **Retry intelligent** : un mail en échec est ré-enfilé jusqu'à 3 fois —
+  il retombe sur un autre modèle/provider, et le modèle fautif est évincé
+  après 5 erreurs (3 sans succès). État « À réessayer » visible dans l'UI.
 - **Mode Dry Run** : catégorise sans déplacer les mails (pour tester).
 - **Onglet Debug** : logs en temps réel + stats providers + bouton test des providers.
 - **ETA en temps réel** : taux de traitement + temps restant estimé.

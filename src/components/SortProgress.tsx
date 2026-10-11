@@ -39,6 +39,7 @@ export default function SortProgressBar({ progress, health }: Props) {
         <span className="sort-stats">
           <span className="ok">✓ {progress.succeeded}</span>
           {progress.failed > 0 && <span className="ko">✗ {progress.failed}</span>}
+          {!!progress.retryPending && <span className="retry">⟳ {progress.retryPending} à réessayer</span>}
           {progress.skipped > 0 && <span className="skip">⊘ {progress.skipped} ignoré(s)</span>}
           {eta && <span className="eta">ETA {eta}</span>}
         </span>

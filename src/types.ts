@@ -71,6 +71,8 @@ export interface SortProgress {
   failed: number;
   /** Mails ignorés volontairement (favoris protégés, déjà triés). */
   skipped: number;
+  /** Mails ré-enfilés pour un nouvel essai après échec. */
+  retryPending?: number;
   currentEmail: string;
   lastCategory: string | null;
   startedAt?: number;
@@ -80,6 +82,12 @@ export interface SortProgress {
 export interface SortError {
   emailId: string;
   error: string;
+}
+
+export interface SortRetry {
+  emailId: string;
+  attempt: number;
+  maxRetries: number;
 }
 
 export interface ProviderTestResult {
@@ -117,6 +125,7 @@ interface MailSorterApi {
     onSortCancelled: (cb: (data: { done: number; total: number }) => void) => (() => void);
     onSortProvider: (cb: (data: { provider: string; model: string; success: boolean; latencyMs: number; error?: string }) => void) => (() => void);
     onSortError: (cb: (data: SortError) => void) => (() => void);
+    onSortRetry: (cb: (data: SortRetry) => void) => (() => void);
   };
   providers: {
     test: (provider: AiProvider) => Promise<ProviderTestResult>;

@@ -21,6 +21,7 @@ export default function App() {
   const [info, setInfo] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, CategorizationResult>>({});
   const [mailErrors, setMailErrors] = useState<Record<string, string>>({});
+  const [mailRetries, setMailRetries] = useState<Record<string, { attempt: number; maxRetries: number }>>({});
   const [providerHealth, setProviderHealth] = useState<Record<string, ProviderHealth>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [sortProgress, setSortProgress] = useState<SortProgress | null>(null);
@@ -56,6 +57,7 @@ export default function App() {
       });
       setResults({});
       setMailErrors({});
+      setMailRetries({});
       setProviderHealth({});
       setSummary(null);
     });
@@ -68,9 +70,30 @@ export default function App() {
         delete next[data.emailId];
         return next;
       });
+      setMailRetries((prev) => {
+        if (!(data.emailId in prev)) return prev;
+        const next = { ...prev };
+        delete next[data.emailId];
+        return next;
+      });
     });
     const offError = api.ai.onSortError((data) => {
       setMailErrors((prev) => ({ ...prev, [data.emailId]: data.error }));
+      setMailRetries((prev) => {
+        if (!(data.emailId in prev)) return prev;
+        const next = { ...prev };
+        delete next[data.emailId];
+        return next;
+      });
+    });
+    const offRetry = api.ai.onSortRetry((data) => {
+      setMailRetries((prev) => ({ ...prev, [data.emailId]: { attempt: data.attempt, maxRetries: data.maxRetries } }));
+      setMailErrors((prev) => {
+        if (!(data.emailId in prev)) return prev;
+        const next = { ...prev };
+        delete next[data.emailId];
+        return next;
+      });
     });
     const offDone = api.ai.onSortDone((data) => {
       setSortProgress(null);
@@ -95,7 +118,7 @@ export default function App() {
       });
     });
     return () => {
-      offStart(); offProgress(); offResult(); offError();
+      offStart(); offProgress(); offResult(); offError(); offRetry();
       offDone(); offCancelled(); offProvider();
     };
   }, []);
@@ -316,6 +339,7 @@ export default function App() {
                 emails={emails}
                 results={results}
                 errors={mailErrors}
+                retries={mailRetries}
                 loading={loadingEmails}
                 busy={busy}
                 categories={settings?.categories ?? []}

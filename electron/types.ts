@@ -88,6 +88,8 @@ export interface SortProgress {
   failed: number;
   /** Mails ignorés volontairement (favoris, déjà triés). */
   skipped: number;
+  /** Mails en échec retriable ré-enfilés (entre erreur et validé). */
+  retryPending: number;
   currentEmail: string;
   lastCategory: string | null;
   startedAt: number;
@@ -98,6 +100,13 @@ export interface SortProgress {
 export interface SortError {
   emailId: string;
   error: string;
+}
+
+/** Mail ré-enfilé pour un nouvel essai (event `sort:retry`). */
+export interface SortRetry {
+  emailId: string;
+  attempt: number;
+  maxRetries: number;
 }
 
 /** Résultat du test unitaire d'un provider (bouton "Tester" des paramètres). */
